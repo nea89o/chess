@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Awesome Chess</title>
+</head>
+<style>
+    * {
+        padding: 0;
+        margin: 0;
+    }
+
+    .board {
+        border: 2px solid black;
+        font-size: 20px;
+    }
+
+    .board-field.black {
+        background: chocolate;
+    }
+
+    .board-field.white {
+        background: bisque;
+    }
+
+    .board-field {
+        text-align: center;
+        width: 1.5em;
+        height: 1.5em;
+    }
+
+    #warn {
+        display: block;
+        position: fixed;
+        top: 25%;
+        left: 25%;
+        z-index: 10;
+        margin: 0 auto;
+        width: 50%;
+        background: coral;
+        border: crimson solid 1px;
+    }
+
+    .invisible {
+        display: none !important;
+    }
+</style>
+<body>
+
+<div id="app"></div>
+<div id="warn" class="invisible">
+    Connection closed
+</div>
+<script>
+    class Board {
+        constructor(elem) {
+            this.socket = new WebSocket('ws://localhost:8000/socket')
+            this.exiting = false
+            this.boardState = {}
+            window.addEventListener('beforeunload', () => {
+                this.exiting = true
+            })
+            this.socket.addEventListener('message', ev => {
+                const message = JSON.parse(ev.data)
+                console.log(message)
+                this.playerColor = message.player_color || this.playerColor
+                this.boardState = parseFEN(message.board)
+                this.synchronizeBoard()
+            })
+            this.socket.addEventListener('close', () => {
+                if (!this.exiting)
+                    document.getElementById('warn').classList.remove('invisible')
+            })
+            let board = document.createElement("table")
+            board.className = "board"
+            this.fields = {};
+            for (let i = 0; i < 8; i++) {
+                let row = document.createElement("tr")
+                row.className = "board-row"
+                for (let j = 0; j < 8; j++) {
+                    let field = document.createElement("td")
+                    field.className = "board-field " + (((i + j) % 2) === 0 ? 'black' : 'white');
+                    let name = indiciesToFieldName(i, j)
+                    field.innerText = name;
+                    field.addEventListener("dragover", ev => ev.preventDefault())
+                    field.addEventListener("drop", ev => {
+                        ev.preventDefault()
+                        let data = ev.dataTransfer.getData("text")
+                        let fromField = data
+                        let toField = name
+                        this.playMove(fromField, toField)
+                    })
+                    this.fields [name] = field
+                    row.appendChild(field)
+                }
+                board.appendChild(row)
+            }
+            elem.appendChild(board)
+        }
+
+        playMove(fromField, toField) {
+            let uci = fromField + toField
+            if ((toField[1] === '8' && this.playerColor === 'white')
+                || (toField[2] === '1' && this.playerColor === 'black')) {
+                uci += window.prompt('promote to what')
+            }
+            this.socket.send(JSON.stringify({
+                method: "move",
+                params: {
+                    move: uci
+                }
+            }))
+        }
+
+        get isPlayerTurn() {
+            return this.playerColor === this.boardState.turn
+        }
+
+        synchronizeBoard() {
+            for (let field in this.fields) {
+                this.fields[field].innerHTML = ""
+                if (this.boardState[field]) {
+                    let piece = document.createElement("span")
+                    piece.innerText = notationToPieceUnicode(this.boardState[field])
+                    piece.addEventListener("dragstart", ev => {
+                        ev.dataTransfer.setData("text", field)
+                    })
+                    piece.draggable = this.isPlayerTurn
+                    this.fields[field].appendChild(piece)
+                }
+            }
+        }
+    }
+
+    function indiciesToFieldName(row, col) {
+        return "abcdefgh".at(col) + (row + 1)
+    }
+
+    function parseFEN(notation) {
+        let row = 7;
+        let col = 0;
+        let board = {}
+        for (let c of notation) {
+            if (c === '/') { // Next row on /
+                if (col !== 8) {
+                    throw "Row not finished"
+                }
+                row--
+                col = 0
+            } else if ((c | 0) > 0) { // Skip n places on a number
+                col += (c | 0)
+            } else if (c === ' ') {
+                if (board.turn)
+                    break
+            } else if ("KQRBNP".includes(c.toUpperCase())) {
+                board[indiciesToFieldName(row, col)] = c
+                col += 1
+            } else if (c === 'b') {
+                board.turn = 'black'
+            } else if (c === 'w') {
+                board.turn = 'white'
+            } else {
+                throw "Could not parse notation: " + c
+            }
+        }
+        return board
+    }
+
+    function notationToPieceUnicode(notation) {
+        let white = "♔♕♖♗♘♙"
+        let black = "♚♛♜♝♞♟︎"
+        let names = "KQRBNP"
+        let index = names.indexOf(notation.toUpperCase())
+        if (index < 0) {
+            return null
+        }
+        return (notation < 'Z' ? white : black)[index];
+    }
+
+
+    const board = new Board(document.getElementById("app"));
+
+</script>
+
+
+</body>
+</html>
