@@ -44,6 +44,14 @@
         border: 1px solid green;
     }
 
+    .legalmove.white {
+        background: cadetblue;
+    }
+
+    .legalmove.black {
+        background: olive;
+    }
+
     #warn {
         display: block;
         position: fixed;
@@ -87,6 +95,7 @@
             window.addEventListener('beforeunload', () => {
                 this.ended = true
             })
+            this.legalMoves = []
             this.socket.addEventListener('message', ev => {
                 const message = JSON.parse(ev.data)
                 console.log(message)
@@ -95,6 +104,8 @@
                 this.lastMove = message.lastmove || ''
                 this.ended ||= message.event === 'game_over'
                 this.result = message.result
+                this.legalMoves = message.legalmoves || []
+                this.awaitResync = false
                 this.synchronizeBoard()
             })
             this.socket.addEventListener('close', () => {
@@ -111,11 +122,18 @@
                     let field = document.createElement("td")
                     field.className = "board-field " + (((i + j) % 2) === 0 ? 'black' : 'white');
                     let name = indiciesToFieldName(i, j)
-                    field.innerText = name;
                     field.addEventListener("dragover", ev => ev.preventDefault())
                     field.addEventListener("drop", ev => {
                         ev.preventDefault()
                         this.playMove(ev.dataTransfer.getData("text"), name)
+                    })
+                    field.addEventListener('click', ev => {
+                        if (this.partialMove) {
+                            this.playMove(this.partialMove, name)
+                        } else {
+                            this.partialMove = name
+                        }
+                        this.updateHighlightedMoves()
                     })
                     this.fields [name] = field
                     row.appendChild(field)
@@ -126,10 +144,13 @@
             this.turnIndicator = document.createElement('p')
             this.turnIndicator.className = "turn-indicator status"
             elem.appendChild(this.turnIndicator)
+            this.partialMove = null
         }
 
         playMove(fromField, toField) {
-            if (!this.isPlayerTurn) return
+            if (!this.isPlayerTurn || this.awaitResync) return
+            this.awaitResync = true
+            this.partialMove = null
             let uci = fromField + toField
             if (((toField[1] === '8' && this.playerColor === 'white')
                     || (toField[2] === '1' && this.playerColor === 'black'))
@@ -152,6 +173,16 @@
             return this.playerColor === this.boardState.turn
         }
 
+        updateHighlightedMoves() {
+            const allowedMoves = this.partialMove ? this.legalMoves.filter(it => it.startsWith(this.partialMove)).map(it => it.slice(2)) : []
+            for (const field in this.fields) {
+                const canMoveHere = allowedMoves.find(it => it.startsWith(field))
+                this.fields[field].classList.remove('legalmove')
+                if (canMoveHere)
+                    this.fields[field].classList.add('legalmove')
+            }
+        }
+
         synchronizeBoard() {
             this.turnIndicator.innerHTML = `<b>${capitalize(this.boardState.turn)}</b>s turn`
             if (this.ended) {
@@ -167,6 +198,12 @@
                     piece.innerText = notationToPieceUnicode(this.boardState[field])
                     piece.addEventListener("dragstart", ev => {
                         ev.dataTransfer.setData("text", field)
+                        this.partialMove = field
+                        this.updateHighlightedMoves()
+                    })
+                    piece.addEventListener('dragend', ev => {
+                        this.partialMove = null
+                        this.updateHighlightedMoves()
                     })
                     piece.draggable = this.canPlay
                     fieldDOM.appendChild(piece)

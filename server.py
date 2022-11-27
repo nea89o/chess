@@ -34,12 +34,13 @@ async def handle_socket(request: web.Request):
     try:
         board = chess.Board()
         transport, engine = await chess.engine.popen_uci('stockfish')
-        await ws.send_json(dict(event="ready", player_color='white', board=board.fen()))
 
         async def send_to_user(message: dict):
             message['board'] = board.fen()
             message['legalmoves'] = [m.uci() for m in board.legal_moves]
             await ws.send_json(message)
+
+        await send_to_user(dict(event="ready", player_color='white'))
 
         async for msg in ws:
             msg: aiohttp.WSMessage
