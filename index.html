@@ -58,7 +58,8 @@
 <script>
     class Board {
         constructor(elem) {
-            this.socket = new WebSocket('ws://localhost:8000/socket')
+
+            this.socket = new WebSocket(`ws://${window.location.host}/socket`)
             this.exiting = false
             this.boardState = {}
             window.addEventListener('beforeunload', () => {

@@ -6,6 +6,7 @@ name = "pypi"
 [packages]
 aiohttp = "*"
 chess = "*"
+aiohttp-jinja2 = "*"
 
 [dev-packages]
 aiohttp-devtools = "*"

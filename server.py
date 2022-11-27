@@ -1,21 +1,30 @@
 import asyncio
 import json
+import os
+import pathlib
 import random
 import typing
 import weakref
 
 import aiohttp
+import aiohttp_jinja2
 import chess
 import chess.engine
+import jinja2
 from aiohttp import web
 
 app = web.Application()
 app['websockets'] = weakref.WeakSet()
 app['chessgames'] = weakref.WeakSet()
 
+basepath = pathlib.Path(__file__).parent.absolute()
+print(f"Loading templates from {basepath}")
+aiohttp_jinja2.setup(app, loader=jinja2.FileSystemLoader(basepath))
 
-async def index(request: web.Request) -> web.Response:
-    return web.Response(text="Welcome to the chess hell backend!")
+
+@aiohttp_jinja2.template('index.html')
+async def index(request: web.Request):
+    return {}
 
 
 async def handle_socket(request: web.Request):
@@ -91,4 +100,4 @@ app.add_routes([
 app.on_shutdown.append(on_shutdown)
 
 if __name__ == '__main__':
-    web.run_app(app, )
+    web.run_app(app, port=int(os.environ.get('PORT', '3000')))
