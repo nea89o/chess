@@ -11,6 +11,7 @@
     * {
         padding: 0;
         margin: 0;
+        box-sizing: border-box;
     }
 
     #app {
@@ -35,7 +36,12 @@
     .board-field {
         text-align: center;
         width: 1.5em;
+        border: 1px transparent;
         height: 1.5em;
+    }
+
+    .lastmove {
+        border: 1px solid green;
     }
 
     #warn {
@@ -73,6 +79,7 @@
             this.socket = new WebSocket(`${location.protocol.includes('s') ? 'wss' : 'ws'}://${window.location.host}/socket`)
             this.exiting = false
             this.boardState = {}
+            this.lastMove = ''
             window.addEventListener('beforeunload', () => {
                 this.exiting = true
             })
@@ -81,6 +88,7 @@
                 console.log(message)
                 this.playerColor = message.player_color || this.playerColor
                 this.boardState = parseFEN(message.board)
+                this.lastMove = message.lastmove || ''
                 this.synchronizeBoard()
             })
             this.socket.addEventListener('close', () => {
@@ -119,7 +127,7 @@
             let uci = fromField + toField
             if (((toField[1] === '8' && this.playerColor === 'white')
                     || (toField[2] === '1' && this.playerColor === 'black'))
-                && (this.boardState[toField].toUpperCase() === 'P')) {
+                && (this.boardState[fromField].toUpperCase() === 'P')) {
                 uci += window.prompt('promote to what')
             }
             this.socket.send(JSON.stringify({
@@ -137,7 +145,8 @@
         synchronizeBoard() {
             this.turnIndicator.innerHTML = `<b>${capitalize(this.boardState.turn)}</b>s turn`
             for (let field in this.fields) {
-                this.fields[field].innerHTML = ""
+                const fieldDOM = this.fields[field]
+                fieldDOM.innerHTML = ""
                 if (this.boardState[field]) {
                     let piece = document.createElement("span")
                     piece.innerText = notationToPieceUnicode(this.boardState[field])
@@ -145,7 +154,11 @@
                         ev.dataTransfer.setData("text", field)
                     })
                     piece.draggable = this.isPlayerTurn
-                    this.fields[field].appendChild(piece)
+                    fieldDOM.appendChild(piece)
+                }
+                fieldDOM.classList.remove('lastmove')
+                if (this.lastMove.includes(field)) {
+                    fieldDOM.classList.add('lastmove')
                 }
             }
         }

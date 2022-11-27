@@ -35,6 +35,12 @@ async def handle_socket(request: web.Request):
         board = chess.Board()
         transport, engine = await chess.engine.popen_uci('stockfish')
         await ws.send_json(dict(event="ready", player_color='white', board=board.fen()))
+
+        async def send_to_user(message: dict):
+            message['board'] = board.fen()
+            message['legalmoves'] = [m.uci() for m in board.legal_moves]
+            await ws.send_json(message)
+
         async for msg in ws:
             msg: aiohttp.WSMessage
             if msg.type == aiohttp.WSMsgType.TEXT:
@@ -44,24 +50,14 @@ async def handle_socket(request: web.Request):
                     try:
                         user_move = chess.Move.from_uci(req['params']['move'])
                     except ValueError:
-                        await ws.send_json(dict(
-                            event="reject_move",
-                            board=board.fen(),
-                        ))
+                        await send_to_user(dict(event="reject_move"))
                         continue
 
                     if user_move not in board.legal_moves:
-                        await ws.send_json(dict(
-                            event="reject_move",
-                            board=board.fen(),
-                        ))
+                        await send_to_user(dict(event="reject_move"))
                         continue
                     board.push(user_move)
-                    await ws.send_json(dict(
-                        event='accept_move',
-                        board=board.fen(),
-                        lastmove=user_move.uci(),
-                    ))
+                    await send_to_user(dict(event="accept_move", lastmove=user_move.uci()))
                     candidates: typing.List[chess.engine.InfoDict] = await engine.analyse(
                         board, chess.engine.Limit(time=1), multipv=100)
 
@@ -73,8 +69,8 @@ async def handle_socket(request: web.Request):
                     most_drawy_move: chess.engine.InfoDict = min(candidates, key=appraise)
                     my_move: chess.Move = (most_drawy_move['pv'][0])
                     board.push(my_move)
-                    await ws.send_json(dict(
-                        event="computer_moved", board=board.fen(),
+                    await send_to_user(dict(
+                        event="computer_moved",
                         lastmove=my_move.uci(),
                     ))
 
