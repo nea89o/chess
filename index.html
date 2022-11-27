@@ -64,6 +64,10 @@
     .invisible {
         display: none !important;
     }
+
+    a, a:hover, a:focus, a:visited, a:active {
+        color: inherit;
+    }
 </style>
 <body>
 
@@ -81,7 +85,7 @@
             this.boardState = {}
             this.lastMove = ''
             window.addEventListener('beforeunload', () => {
-                this.ended = false
+                this.ended = true
             })
             this.socket.addEventListener('message', ev => {
                 const message = JSON.parse(ev.data)
@@ -151,7 +155,9 @@
         synchronizeBoard() {
             this.turnIndicator.innerHTML = `<b>${capitalize(this.boardState.turn)}</b>s turn`
             if (this.ended) {
-                this.turnIndicator.innerHTML += `<p><b>${this.result}</b></p>`
+                this.turnIndicator.innerHTML += `
+                    <p><a href="https://youtu.be/yIRT6xRQkf8"><b>${this.result}</b></a></p>
+`
             }
             for (let field in this.fields) {
                 const fieldDOM = this.fields[field]
