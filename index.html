@@ -16,6 +16,7 @@
     .board {
         border: 2px solid black;
         font-size: 20px;
+        user-select: none;
     }
 
     .board-field.black {
@@ -88,10 +89,7 @@
                     field.addEventListener("dragover", ev => ev.preventDefault())
                     field.addEventListener("drop", ev => {
                         ev.preventDefault()
-                        let data = ev.dataTransfer.getData("text")
-                        let fromField = data
-                        let toField = name
-                        this.playMove(fromField, toField)
+                        this.playMove(ev.dataTransfer.getData("text"), name)
                     })
                     this.fields [name] = field
                     row.appendChild(field)
@@ -102,9 +100,11 @@
         }
 
         playMove(fromField, toField) {
+            if (!this.isPlayerTurn) return
             let uci = fromField + toField
-            if ((toField[1] === '8' && this.playerColor === 'white')
-                || (toField[2] === '1' && this.playerColor === 'black')) {
+            if (((toField[1] === '8' && this.playerColor === 'white')
+                    || (toField[2] === '1' && this.playerColor === 'black'))
+                && (this.boardState[toField].toUpperCase() === 'P')) {
                 uci += window.prompt('promote to what')
             }
             this.socket.send(JSON.stringify({
@@ -143,27 +143,42 @@
         let row = 7;
         let col = 0;
         let board = {}
+        let s = 'position'
+        let error = c => {
+            console.log("Error while parsing notation")
+            console.log(board)
+            throw "Could not parse notation: " + c
+        }
         for (let c of notation) {
-            if (c === '/') { // Next row on /
-                if (col !== 8) {
-                    throw "Row not finished"
+            if (s === 'position') {
+                if (c === '/') { // Next row on /
+                    if (col !== 8) {
+                        throw "Row not finished"
+                    }
+                    row--
+                    col = 0
+                } else if ((c | 0) > 0) { // Skip n places on a number
+                    col += (c | 0)
+                } else if (c === ' ') {
+                    s = 'turn'
+                } else if ("KQRBNP".includes(c.toUpperCase())) {
+                    board[indiciesToFieldName(row, col)] = c
+                    col += 1
+                } else {
+                    error(c)
                 }
-                row--
-                col = 0
-            } else if ((c | 0) > 0) { // Skip n places on a number
-                col += (c | 0)
-            } else if (c === ' ') {
-                if (board.turn)
+            } else if (s === 'turn') {
+                if (c === 'b') {
+                    board.turn = 'black'
+                } else if (c === 'w') {
+                    board.turn = 'white'
+                } else if (c === ' ') {
                     break
-            } else if ("KQRBNP".includes(c.toUpperCase())) {
-                board[indiciesToFieldName(row, col)] = c
-                col += 1
-            } else if (c === 'b') {
-                board.turn = 'black'
-            } else if (c === 'w') {
-                board.turn = 'white'
+                } else {
+                    error(c)
+                }
             } else {
-                throw "Could not parse notation: " + c
+                error('Invalid state ' + s)
             }
         }
         return board

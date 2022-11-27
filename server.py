@@ -41,6 +41,12 @@ async def handle_socket(request: web.Request):
                         ))
                         continue
                     board.push(user_move)
+                    await ws.send_json(dict(
+                        event='accept_move',
+                        board=board.fen(),
+                        lastmove=user_move.uci(),
+                    ))
+                    await asyncio.sleep(1.5)
                     # candidates = await engine.analyse(board, chess.engine.Limit(time=1), multipv=100)
                     my_move: chess.Move = random.choice(list(board.legal_moves))
                     board.push(my_move)
