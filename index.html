@@ -77,11 +77,11 @@
     class Board {
         constructor(elem) {
             this.socket = new WebSocket(`${location.protocol.includes('s') ? 'wss' : 'ws'}://${window.location.host}/socket`)
-            this.exiting = false
+            this.ended = false
             this.boardState = {}
             this.lastMove = ''
             window.addEventListener('beforeunload', () => {
-                this.exiting = true
+                this.ended = false
             })
             this.socket.addEventListener('message', ev => {
                 const message = JSON.parse(ev.data)
@@ -89,10 +89,12 @@
                 this.playerColor = message.player_color || this.playerColor
                 this.boardState = parseFEN(message.board)
                 this.lastMove = message.lastmove || ''
+                this.ended ||= message.event === 'game_over'
+                this.result = message.result
                 this.synchronizeBoard()
             })
             this.socket.addEventListener('close', () => {
-                if (!this.exiting)
+                if (!this.ended)
                     document.getElementById('warn').classList.remove('invisible')
             })
             let board = document.createElement("table")
@@ -138,12 +140,19 @@
             }))
         }
 
+        get canPlay() {
+            return this.isPlayerTurn && !this.ended
+        }
+
         get isPlayerTurn() {
             return this.playerColor === this.boardState.turn
         }
 
         synchronizeBoard() {
             this.turnIndicator.innerHTML = `<b>${capitalize(this.boardState.turn)}</b>s turn`
+            if (this.ended) {
+                this.turnIndicator.innerHTML += `<p><b>${this.result}</b></p>`
+            }
             for (let field in this.fields) {
                 const fieldDOM = this.fields[field]
                 fieldDOM.innerHTML = ""
@@ -153,7 +162,7 @@
                     piece.addEventListener("dragstart", ev => {
                         ev.dataTransfer.setData("text", field)
                     })
-                    piece.draggable = this.isPlayerTurn
+                    piece.draggable = this.canPlay
                     fieldDOM.appendChild(piece)
                 }
                 fieldDOM.classList.remove('lastmove')

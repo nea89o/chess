@@ -66,6 +66,10 @@ async def handle_socket(request: web.Request):
                         numscore = score.relative.score(mate_score=100000)
                         return abs(numscore)
 
+                    if board.is_game_over():
+                        await send_to_user(dict(event="game_over", result=board.result()))
+                        break
+
                     most_drawy_move: chess.engine.InfoDict = min(candidates, key=appraise)
                     my_move: chess.Move = (most_drawy_move['pv'][0])
                     board.push(my_move)
@@ -73,6 +77,9 @@ async def handle_socket(request: web.Request):
                         event="computer_moved",
                         lastmove=my_move.uci(),
                     ))
+                    if board.is_game_over(claim_draw=True):
+                        await send_to_user(dict(event="game_over", result=board.result(claim_draw=True)))
+                        break
 
     finally:
         if not ws.closed:
