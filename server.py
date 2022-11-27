@@ -2,7 +2,6 @@ import asyncio
 import json
 import os
 import pathlib
-import random
 import typing
 import weakref
 
@@ -42,7 +41,15 @@ async def handle_socket(request: web.Request):
                 req = json.loads(msg.data)
                 m = req["method"]
                 if m == "move":
-                    user_move = chess.Move.from_uci(req['params']['move'])
+                    try:
+                        user_move = chess.Move.from_uci(req['params']['move'])
+                    except ValueError:
+                        await ws.send_json(dict(
+                            event="reject_move",
+                            board=board.fen(),
+                        ))
+                        continue
+
                     if user_move not in board.legal_moves:
                         await ws.send_json(dict(
                             event="reject_move",
@@ -55,9 +62,16 @@ async def handle_socket(request: web.Request):
                         board=board.fen(),
                         lastmove=user_move.uci(),
                     ))
-                    await asyncio.sleep(1.5)
-                    # candidates = await engine.analyse(board, chess.engine.Limit(time=1), multipv=100)
-                    my_move: chess.Move = random.choice(list(board.legal_moves))
+                    candidates: typing.List[chess.engine.InfoDict] = await engine.analyse(
+                        board, chess.engine.Limit(time=1), multipv=100)
+
+                    def appraise(sit: chess.engine.InfoDict):
+                        score: chess.engine.PovScore = sit['score']
+                        numscore = score.relative.score(mate_score=100000)
+                        return abs(numscore)
+
+                    most_drawy_move: chess.engine.InfoDict = min(candidates, key=appraise)
+                    my_move: chess.Move = (most_drawy_move['pv'][0])
                     board.push(my_move)
                     await ws.send_json(dict(
                         event="computer_moved", board=board.fen(),

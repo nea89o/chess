@@ -13,6 +13,11 @@
         margin: 0;
     }
 
+    #app {
+        margin: 0 auto;
+        width: fit-content;
+    }
+
     .board {
         border: 2px solid black;
         font-size: 20px;
@@ -45,13 +50,20 @@
         border: crimson solid 1px;
     }
 
+    .status {
+        text-align: center;
+        font-family: sans-serif;
+    }
+
     .invisible {
         display: none !important;
     }
 </style>
 <body>
 
-<div id="app"></div>
+<div id="app">
+    <p class="status">You are <b>white</b></p>
+</div>
 <div id="warn" class="invisible">
     Connection closed
 </div>
@@ -78,7 +90,7 @@
             let board = document.createElement("table")
             board.className = "board"
             this.fields = {};
-            for (let i = 0; i < 8; i++) {
+            for (let i = 7; i >= 0; i--) {
                 let row = document.createElement("tr")
                 row.className = "board-row"
                 for (let j = 0; j < 8; j++) {
@@ -97,6 +109,9 @@
                 board.appendChild(row)
             }
             elem.appendChild(board)
+            this.turnIndicator = document.createElement('p')
+            this.turnIndicator.className = "turn-indicator status"
+            elem.appendChild(this.turnIndicator)
         }
 
         playMove(fromField, toField) {
@@ -120,6 +135,7 @@
         }
 
         synchronizeBoard() {
+            this.turnIndicator.innerHTML = `<b>${capitalize(this.boardState.turn)}</b>s turn`
             for (let field in this.fields) {
                 this.fields[field].innerHTML = ""
                 if (this.boardState[field]) {
@@ -133,6 +149,10 @@
                 }
             }
         }
+    }
+
+    function capitalize(thing) {
+        return thing.replace(/\b./, x => x.toUpperCase())
     }
 
     function indiciesToFieldName(row, col) {
