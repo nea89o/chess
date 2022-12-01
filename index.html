@@ -76,11 +76,41 @@
     a, a:hover, a:focus, a:visited, a:active {
         color: inherit;
     }
+
+    #choice {
+        position: fixed;
+        display: none;
+        top: 0%;
+        left: 0%;
+        z-index: 5;
+        width: 100%;
+        height: 100%;
+        background: darkgray;
+    }
+
+    #choice.selectingmove {
+        display: block;
+    }
+
+    .choicewrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+    }
+
+    .choicewrapper button {
+        width: 2em;
+        height: 2em;
+    }
 </style>
 <body>
 
 <div id="app">
     <p class="status">You are <b>white</b></p>
+</div>
+<div id="choice" class="">
 </div>
 <div id="warn" class="invisible">
     Connection closed
@@ -95,6 +125,21 @@
             window.addEventListener('beforeunload', () => {
                 this.ended = true
             })
+            this.choiceButton = document.getElementById("choice")
+            let choiceWrapper = document.createElement("div")
+            choiceWrapper.className = "choicewrapper"
+            let p = document.createElement("p")
+            p.innerText = "What do you want to convert to?"
+            choiceWrapper.appendChild(p)
+            for (const c of ['n', 'b', 'r', 'q']) {
+                const button = document.createElement("button")
+                button.innerText = notationToPieceUnicode(c)
+                button.addEventListener('click', ev => {
+                    this.finishTransformationMove(c)
+                })
+                choiceWrapper.appendChild(button)
+            }
+            this.choiceButton.appendChild(choiceWrapper)
             this.legalMoves = []
             this.socket.addEventListener('message', ev => {
                 const message = JSON.parse(ev.data)
@@ -145,6 +190,19 @@
             this.turnIndicator.className = "turn-indicator status"
             elem.appendChild(this.turnIndicator)
             this.partialMove = null
+            this.preTransformationMove = null
+        }
+
+        finishTransformationMove(transformationPiece) {
+            if (this.preTransformationMove == null) return
+            this.choiceButton.classList.remove('selectingmove')
+            this.socket.send(JSON.stringify({
+                method: "move",
+                params: {
+                    move: this.preTransformationMove + transformationPiece
+                }
+            }))
+            this.preTransformationMove = null
         }
 
         playMove(fromField, toField) {
@@ -152,17 +210,14 @@
             this.awaitResync = true
             this.partialMove = null
             let uci = fromField + toField
+            this.preTransformationMove = uci
             if (((toField[1] === '8' && this.playerColor === 'white')
                     || (toField[2] === '1' && this.playerColor === 'black'))
                 && (this.boardState[fromField].toUpperCase() === 'P')) {
-                uci += window.prompt('promote to what')
+                this.choiceButton.classList.add('selectingmove')
+            } else {
+                this.finishTransformationMove('')
             }
-            this.socket.send(JSON.stringify({
-                method: "move",
-                params: {
-                    move: uci
-                }
-            }))
         }
 
         get canPlay() {
