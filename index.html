@@ -14,10 +14,17 @@
         box-sizing: border-box;
     }
 
-    #app {
+    #app, #advertisment {
         margin: 0 auto;
         width: fit-content;
     }
+
+    #advertisment a{
+        font-size: 0.8em;
+        color: gray;
+        text-decoration: none!important;
+    }
+
 
     .board {
         border: 2px solid black;
@@ -50,6 +57,32 @@
 
     .legalmove.black {
         background: olive;
+    }
+
+    #admodal {
+        display: none;
+        position: fixed;
+        top: 25%;
+        left: 25%;
+        z-index: 10;
+        margin: 0 auto;
+        width: 50%;
+        background: aliceblue;
+        border: beige solid 1px;
+        box-sizing: border-box;
+        padding-left: 3em;
+    }
+    #admodal.visible {
+        display: block;
+    }
+
+    #admodal ul {
+        margin: 0 auto;
+    }
+
+    #admodal div {
+        position: absolute;
+        right: 0.5em;
     }
 
     #warn {
@@ -110,12 +143,34 @@
 <div id="app">
     <p class="status">You are <b>white</b></p>
 </div>
+<div id="advertisment">
+    <a onclick="adinfo()" href="javascript:void(0)">Info</a>
+</div>
 <div id="choice" class="">
+</div>
+<div id="admodal">
+    <div><a href="#" onclick="adinfoClose()">x</a></div>
+    <ul>
+    <li>Created by Linnea Gräf</li>    
+    <li><a href="https://git.nea.moe/nea/chess">Source</a></li>
+    <li><a href="https://kitty.social/@nea89">Fediverse / Mastodon</a></li>
+    <li><a href="https://ko-fi.com/nea89">Ko-Fi</a></li>
+    </ul>
 </div>
 <div id="warn" class="invisible">
     Connection closed
 </div>
 <script>
+
+    function adinfo() {
+        admodal.classList.add('visible');
+    }
+
+    function adinfoClose() {
+        admodal.classList.remove('visible');
+    }
+
+
     class Board {
         constructor(elem) {
             this.socket = new WebSocket(`${location.protocol.includes('s') ? 'wss' : 'ws'}://${window.location.host}/socket`)
