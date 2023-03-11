@@ -149,7 +149,7 @@
 <div id="choice" class="">
 </div>
 <div id="admodal">
-    <div><a href="#" onclick="adinfoClose()">x</a></div>
+    <div><a href="javascript:void(0)" onclick="adinfoClose()">x</a></div>
     <ul>
     <li>Created by Linnea Gräf</li>    
     <li><a href="https://git.nea.moe/nea/chess">Source</a></li>
@@ -161,6 +161,8 @@
     Connection closed
 </div>
 <script>
+
+    const admodal = document.getElementById("admodal")
 
     function adinfo() {
         admodal.classList.add('visible');
@@ -175,6 +177,7 @@
         constructor(elem) {
             this.socket = new WebSocket(`${location.protocol.includes('s') ? 'wss' : 'ws'}://${window.location.host}/socket`)
             this.ended = false
+            this.pgn = null
             this.boardState = {}
             this.lastMove = ''
             window.addEventListener('beforeunload', () => {
@@ -198,11 +201,11 @@
             this.legalMoves = []
             this.socket.addEventListener('message', ev => {
                 const message = JSON.parse(ev.data)
-                console.log(message)
                 this.playerColor = message.player_color || this.playerColor
                 this.boardState = parseFEN(message.board)
                 this.lastMove = message.lastmove || ''
                 this.ended ||= message.event === 'game_over'
+                this.pgn = message.pgn || this.pgn
                 this.result = message.result
                 this.legalMoves = message.legalmoves || []
                 this.awaitResync = false
@@ -267,7 +270,7 @@
             let uci = fromField + toField
             this.preTransformationMove = uci
             if (((toField[1] === '8' && this.playerColor === 'white')
-                    || (toField[2] === '1' && this.playerColor === 'black'))
+                    || (toField[1] === '1' && this.playerColor === 'black'))
                 && (this.boardState[fromField].toUpperCase() === 'P')) {
                 this.choiceButton.classList.add('selectingmove')
             } else {
@@ -299,6 +302,10 @@
                 this.turnIndicator.innerHTML += `
                     <p><a href="https://youtu.be/yIRT6xRQkf8"><b>${this.result}</b></a></p>
 `
+            }
+            if(this.pgn) {
+                this.turnIndicator.innerHTML += `
+                    <p><a href="data:application/vnd.chess-pgn;base64,${btoa(this.pgn)}" download="game.pgn" >Download PGN</a></p>`
             }
             for (let field in this.fields) {
                 const fieldDOM = this.fields[field]
